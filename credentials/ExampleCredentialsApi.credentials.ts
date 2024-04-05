@@ -13,18 +13,16 @@ export class ExampleCredentialsApi implements ICredentialType {
 		// Properties can be defined exactly in the same way
 		// as node properties.
 		{
-			displayName: 'User Name',
-			name: 'username',
-			type: 'string',
+			displayName: 'Host',
+			name: 'host',
+			type: 'number',
 			default: '',
 		},
 		{
-			displayName: 'Password',
-			name: 'password',
-			type: 'string',
-			typeOptions: {
-				password: true,
-			},
+			displayName: 'Port',
+			name: 'port',
+			type: 'number',
+
 			default: '',
 		},
 	];
@@ -36,8 +34,8 @@ export class ExampleCredentialsApi implements ICredentialType {
 		type: 'generic',
 		properties: {
 			auth: {
-				username: '={{ $credentials.username }}',
-				password: '={{ $credentials.password }}',
+				username: '={{ $credentials.host }}',
+				password: '={{ $credentials.port }}',
 			},
 			qs: {
 				// Send this as part of the query string
