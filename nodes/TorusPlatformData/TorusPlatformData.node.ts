@@ -1,0 +1,434 @@
+import {
+	IExecuteFunctions,
+	INodeExecutionData,
+	INodeType,
+	INodeTypeDescription,
+	NodeOperationError,
+} from 'n8n-workflow';
+
+const Redis = require('ioredis');
+
+export class TorusPlatformData implements INodeType {
+	description: INodeTypeDescription;
+	constructor() {
+		this.description = {
+			displayName: 'Torus Platform Data',
+			name: 'torusPlatformData',
+			group: ['transform'],
+			version: 1,
+			description: 'Node for reading or writing data to Torus platform',
+			defaults: {
+				name: 'Torus Platform Data',
+			},
+			inputs: ['main'],
+			outputs: ['main'],
+			properties: [
+				{
+					displayName: 'Operation',
+					name: 'operation',
+					type: 'options',
+					options: [
+						{
+							name: 'WRITE',
+							value: 'write',
+						},
+						{
+							name: 'READ',
+							value: 'read',
+						},
+						{
+							name: 'BOTH',
+							value: 'both',
+						},
+					],
+					default: 'write',
+					description: 'Select whether to write or read data from Torus',
+				},
+				{
+					displayName: 'Redis Data',
+					name: 'redisData',
+					type: 'options',
+					options: [
+						{
+							name: 'JSON - JSON',
+							value: 'json',
+						},
+						{
+							name: 'STREAM - STREAM',
+							value: 'stream',
+						},
+						{
+							name: 'JSON - STREAM',
+							value: 'json-stream',
+						},
+						{
+							name: 'STREAM - JSON',
+							value: 'stream-json',
+						},
+					],
+					default: '',
+					description: 'Choose the type of data structure in Redis',
+					// displayOptions: {
+					//  show: {
+					//      operation: ['write', 'Read and Write'],
+					//  },
+					// },
+				},
+				{
+					displayName: 'Group Name',
+					name: 'groupName',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter consumer name',
+					description: 'Specify the key for storing or retrieving data in Torus',
+					displayOptions: {
+						show: {
+							operation: ['both'],
+							redisData: ['stream-json'],
+						},
+					},
+				},
+				{
+					displayName: 'Consumer',
+					name: 'consumer',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter consumer name',
+					description: 'Specify the key for storing or retrieving data in Torus',
+					displayOptions: {
+						show: {
+							operation: ['both'],
+							redisData: ['stream-json'],
+						},
+					},
+				},
+				{
+					displayName: 'Key Name',
+					name: 'keyName',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter key name',
+					description: 'Specify the key for storing or retrieving data in Torus',
+					displayOptions: {
+						show: {
+							operation: ['read', 'write'],
+							redisData: ['json'],
+						},
+					},
+				},
+				{
+					displayName: 'Stream Name',
+					name: 'streamName',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter key name',
+					description: 'Specify the key for storing or retrieving data in Torus',
+					displayOptions: {
+						show: {
+							operation: ['read', 'write'],
+							redisData: ['stream'],
+						},
+					},
+				},
+				{
+					displayName: 'FromKeyName ',
+					name: 'fromKeyName',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter key name',
+					description: 'Specify the key for storing or retrieving data in Torus',
+					displayOptions: {
+						show: {
+							operation: ['both'],
+							redisData: ['stream', 'json', 'json-stream', 'stream-json'],
+						},
+					},
+				},
+				{
+					displayName: 'To Key Name',
+					name: 'toKeyName',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter key name',
+					description: 'Specify the key for storing or retrieving data in Torus',
+					displayOptions: {
+						show: {
+							operation: ['both'],
+							redisData: ['stream', 'json', 'json-stream', 'stream-json'],
+						},
+					},
+				},
+				{
+					displayName: 'Path',
+					name: 'path',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter path',
+					description: 'Specify the value to be stored in Torus (for write operation)',
+					displayOptions: {
+						show: {
+							operation: ['both'],
+							redisData: ['json', 'stream'],
+						},
+					},
+				},
+
+				{
+					displayName: 'Value',
+					name: 'value',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter value',
+					description: 'Specify the value to be stored in Torus (for write operation)',
+					displayOptions: {
+						show: {
+							operation: ['write'],
+						},
+					},
+				},
+				{
+					displayName: 'Value',
+					name: 'Value',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter Value',
+					description: 'Specify the Value to be stored in Torus (for write operation)',
+					displayOptions: {
+						show: {
+							operation: ['both'],
+							redisData: ['stream', 'json', 'json-stream', 'stream-json'],
+						},
+					},
+				},
+			],
+		};
+	}
+
+	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+		const items = this.getInputData();
+		const returnData: INodeExecutionData[] = [];
+
+		for (let i = 0; i < items.length; i++) {
+			const operation = this.getNodeParameter('operation', i) as string;
+			const redisData = this.getNodeParameter('redisData', i) as string;
+
+			let keyName = '';
+			let streamName = '';
+			let value = '';
+			let fromKeyName = '';
+			let toKeyName = '';
+			let path = '';
+			let Value = '';
+			let consumer = '';
+			let groupName = '';
+
+			if (operation === 'write' || operation === 'read') {
+				if (redisData === 'json') {
+					keyName = this.getNodeParameter('keyName', i) as string;
+				} else if (redisData === 'stream') {
+					streamName = this.getNodeParameter('streamName', i) as string;
+				}
+			}
+			if (operation === 'write') {
+				value = this.getNodeParameter('value', i) as string;
+			}
+			if (operation === 'both') {
+				if (redisData === 'json' || redisData === 'stream') {
+					path = this.getNodeParameter('path', i) as string;
+				}
+				if (redisData === 'stream-json') {
+					consumer = this.getNodeParameter('consumer', i) as string;
+					groupName = this.getNodeParameter('groupName', i) as string;
+				}
+				fromKeyName = this.getNodeParameter('fromKeyName', i) as string;
+				toKeyName = this.getNodeParameter('toKeyName', i) as string;
+				Value = this.getNodeParameter('Value', i) as string;
+			}
+
+			const redis = new Redis({
+				host: process.env.HOST,
+				port: process.env.PORT,
+			});
+
+			try {
+				if (operation === 'write') {
+					if (redisData === 'json') {
+						await redis.call('JSON.SET', keyName, '$', JSON.stringify(value));
+						returnData.push({
+							json: {
+								operation: 'write',
+								keyName,
+								value,
+							},
+						});
+					} else if (redisData === 'stream') {
+						await redis.call('xadd', streamName, '*', 'value', JSON.stringify(value));
+						returnData.push({
+							json: {
+								operation: 'write',
+								streamName,
+								value,
+							},
+						});
+					}
+				}
+
+				if (operation === 'read') {
+					let data: any;
+					if (redisData === 'json') {
+						data = await redis.call('JSON.GET', keyName);
+						returnData.push({
+							json: {
+								operation: 'read',
+								keyName,
+								data,
+							},
+						});
+					} else if (redisData === 'stream') {
+						data = await redis.call('xrange', streamName, '-', '+');
+						returnData.push({
+							json: {
+								operation: 'read',
+								streamName,
+								data,
+							},
+						});
+					}
+				}
+
+				if (operation === 'both') {
+					let list: any;
+					if (redisData === 'json') {
+						if (fromKeyName) {
+							list = await redis.call('JSON.GET', fromKeyName);
+							let info = JSON.parse(list);
+
+							returnData.push({
+								json: {
+									operation: 'both',
+									fromKeyName,
+									info,
+								},
+							});
+						}
+						if (toKeyName && path) {
+							await redis.call('JSON.ARRAPPEND', toKeyName, '.' + path, Value);
+							returnData.push({
+								json: {
+									operation: 'both',
+									toKeyName,
+									Value,
+								},
+							});
+						}
+						if (toKeyName) {
+							await redis.call('JSON.SET', toKeyName, '$', Value);
+							returnData.push({
+								json: {
+									operation: 'both',
+									toKeyName,
+									Value,
+								},
+							});
+						}
+					} else if (redisData === 'stream') {
+						if (fromKeyName) {
+							list = await redis.call('xrange', fromKeyName, '-', '+');
+							returnData.push({
+								json: {
+									operation: 'both',
+									fromKeyName,
+									list,
+								},
+							});
+						}
+						if (toKeyName && path) {
+							await redis.call('xadd', toKeyName, '*', path, Value);
+							returnData.push({
+								json: {
+									operation: 'both',
+
+									Value,
+									toKeyName,
+								},
+							});
+						}
+						if (toKeyName) {
+							await redis.call('xadd', toKeyName, '*', 'value', JSON.stringify(Value));
+							returnData.push({
+								json: {
+									operation: 'both',
+
+									Value,
+									toKeyName,
+								},
+							});
+						}
+					} else if (redisData === 'json-stream') {
+						if (fromKeyName) {
+							list = await redis.call('JSON.GET', fromKeyName);
+							console.log(list);
+
+							returnData.push({
+								json: {
+									operation: 'both',
+									fromKeyName,
+									list,
+								},
+							});
+						}
+						if (list && list.length > 0) {
+							if (toKeyName) {
+								await redis.call('xadd', toKeyName, '*', 'json', JSON.stringify(list));
+								returnData.push({
+									json: {
+										operation: 'both',
+										list,
+										toKeyName,
+									},
+								});
+							}
+						}
+					} else if (redisData === 'stream-json') {
+						if (fromKeyName) {
+							list = await redis.xreadgroup(
+								'GROUP',
+								groupName,
+								consumer,
+								'STREAMS',
+								fromKeyName,
+								'>',
+							);
+							console.log(list);
+
+							returnData.push({
+								json: {
+									operation: 'both',
+									fromKeyName,
+									list,
+								},
+							});
+						}
+						if (list && list.length > 0) {
+							if (toKeyName) {
+								await redis.call('JSON.SET', toKeyName, '$', JSON.stringify(list));
+								returnData.push({
+									json: {
+										operation: 'both',
+										list,
+										toKeyName,
+									},
+								});
+							}
+						}
+					}
+				}
+			} catch (error) {
+				console.error('Redis Error:', error.message);
+				throw new NodeOperationError(this.getNode(), 'Redis Error: ' + error.message);
+			}
+		}
+
+		return [returnData];
+	}
+}

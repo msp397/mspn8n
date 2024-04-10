@@ -38,7 +38,8 @@
 			"dist/nodes/HttpBin/HttpBin.node.js",
 			"dist/nodes/ReadTorusPlatformData/ReadTorusPlatformData.node.js",
 			"dist/nodes/ExampleNode/ExampleNode.node.js",
-			"dist/nodes/CustomNode/CustomNode.node.js"
+			"dist/nodes/CustomNode/CustomNode.node.js",
+			"dist/nodes/TorusPlatformData/TorusPlatformData.node.js"
 		]
 	},
 	"devDependencies": {
