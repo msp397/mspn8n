@@ -233,7 +233,6 @@ export class TorusPlatformData implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			const operation = this.getNodeParameter('operation', i) as string;
 			const redisData = this.getNodeParameter('redisData', i) as string;
-			const redisDataType = this.getNodeParameter('redisDataType', i) as string;
 
 			let keyName = '';
 			let streamName = '';
@@ -244,6 +243,7 @@ export class TorusPlatformData implements INodeType {
 			let Value = '';
 			let consumer = '';
 			let groupName = '';
+			let redisDataType = '';
 
 			if (operation === 'write' || operation === 'read') {
 				if (redisData === 'json') {
@@ -256,6 +256,7 @@ export class TorusPlatformData implements INodeType {
 				value = this.getNodeParameter('value', i) as string;
 			}
 			if (operation === 'both') {
+				redisDataType = this.getNodeParameter('redisDataType', i) as string;
 				if (redisDataType === 'json-json' || redisDataType === 'stream-stream') {
 					Value = this.getNodeParameter('Value', i) as string;
 					path = this.getNodeParameter('path', i) as string;
@@ -396,6 +397,7 @@ export class TorusPlatformData implements INodeType {
 									operation: 'both',
 									fromKeyName,
 									list,
+									toKeyName,
 								},
 							});
 						}
@@ -407,6 +409,7 @@ export class TorusPlatformData implements INodeType {
 										operation: 'both',
 										list,
 										toKeyName,
+										fromKeyName,
 									},
 								});
 							}
@@ -427,6 +430,7 @@ export class TorusPlatformData implements INodeType {
 									operation: 'both',
 									fromKeyName,
 									list,
+									toKeyName,
 								},
 							});
 						}
@@ -438,6 +442,7 @@ export class TorusPlatformData implements INodeType {
 										operation: 'both',
 										list,
 										toKeyName,
+										fromKeyName,
 									},
 								});
 							}
