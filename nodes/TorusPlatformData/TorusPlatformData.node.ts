@@ -50,12 +50,34 @@ export class TorusPlatformData implements INodeType {
 					type: 'options',
 					options: [
 						{
-							name: 'JSON - JSON',
+							name: 'JSON ',
 							value: 'json',
 						},
 						{
-							name: 'STREAM - STREAM',
+							name: 'STREAM ',
 							value: 'stream',
+						},
+					],
+					default: '',
+					description: 'Choose the type of data structure in Redis',
+					displayOptions: {
+						show: {
+							operation: ['write', 'read'],
+						},
+					},
+				},
+				{
+					displayName: 'Redis DataType',
+					name: 'redisDataType',
+					type: 'options',
+					options: [
+						{
+							name: 'JSON - JSON',
+							value: 'json-json',
+						},
+						{
+							name: 'STREAM - STREAM',
+							value: 'stream-stream',
 						},
 						{
 							name: 'JSON - STREAM',
@@ -68,11 +90,11 @@ export class TorusPlatformData implements INodeType {
 					],
 					default: '',
 					description: 'Choose the type of data structure in Redis',
-					// displayOptions: {
-					//  show: {
-					//      operation: ['write', 'Read and Write'],
-					//  },
-					// },
+					displayOptions: {
+						show: {
+							operation: ['both'],
+						},
+					},
 				},
 				{
 					displayName: 'Group Name',
@@ -84,7 +106,7 @@ export class TorusPlatformData implements INodeType {
 					displayOptions: {
 						show: {
 							operation: ['both'],
-							redisData: ['stream-json'],
+							redisDataType: ['stream-json'],
 						},
 					},
 				},
@@ -98,7 +120,7 @@ export class TorusPlatformData implements INodeType {
 					displayOptions: {
 						show: {
 							operation: ['both'],
-							redisData: ['stream-json'],
+							redisDataType: ['stream-json'],
 						},
 					},
 				},
@@ -140,7 +162,7 @@ export class TorusPlatformData implements INodeType {
 					displayOptions: {
 						show: {
 							operation: ['both'],
-							redisData: ['stream', 'json', 'json-stream', 'stream-json'],
+							redisDataType: ['stream-stream', 'json-json', 'json-stream', 'stream-json'],
 						},
 					},
 				},
@@ -154,7 +176,7 @@ export class TorusPlatformData implements INodeType {
 					displayOptions: {
 						show: {
 							operation: ['both'],
-							redisData: ['stream', 'json', 'json-stream', 'stream-json'],
+							redisDataType: ['stream-stream', 'json-json', 'json-stream', 'stream-json'],
 						},
 					},
 				},
@@ -168,7 +190,7 @@ export class TorusPlatformData implements INodeType {
 					displayOptions: {
 						show: {
 							operation: ['both'],
-							redisData: ['json', 'stream'],
+							redisDataType: ['json-json', 'stream-stream'],
 						},
 					},
 				},
@@ -196,7 +218,7 @@ export class TorusPlatformData implements INodeType {
 					displayOptions: {
 						show: {
 							operation: ['both'],
-							redisData: ['stream', 'json', 'json-stream', 'stream-json'],
+							redisDataType: ['stream-stream', 'json-json'],
 						},
 					},
 				},
@@ -211,6 +233,7 @@ export class TorusPlatformData implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			const operation = this.getNodeParameter('operation', i) as string;
 			const redisData = this.getNodeParameter('redisData', i) as string;
+			const redisDataType = this.getNodeParameter('redisDataType', i) as string;
 
 			let keyName = '';
 			let streamName = '';
@@ -233,16 +256,16 @@ export class TorusPlatformData implements INodeType {
 				value = this.getNodeParameter('value', i) as string;
 			}
 			if (operation === 'both') {
-				if (redisData === 'json' || redisData === 'stream') {
+				if (redisDataType === 'json-json' || redisDataType === 'stream-stream') {
+					Value = this.getNodeParameter('Value', i) as string;
 					path = this.getNodeParameter('path', i) as string;
 				}
-				if (redisData === 'stream-json') {
+				if (redisDataType === 'stream-json') {
 					consumer = this.getNodeParameter('consumer', i) as string;
 					groupName = this.getNodeParameter('groupName', i) as string;
 				}
 				fromKeyName = this.getNodeParameter('fromKeyName', i) as string;
 				toKeyName = this.getNodeParameter('toKeyName', i) as string;
-				Value = this.getNodeParameter('Value', i) as string;
 			}
 
 			const redis = new Redis({
@@ -298,7 +321,7 @@ export class TorusPlatformData implements INodeType {
 
 				if (operation === 'both') {
 					let list: any;
-					if (redisData === 'json') {
+					if (redisDataType === 'json-json') {
 						if (fromKeyName) {
 							list = await redis.call('JSON.GET', fromKeyName);
 							let info = JSON.parse(list);
@@ -331,7 +354,7 @@ export class TorusPlatformData implements INodeType {
 								},
 							});
 						}
-					} else if (redisData === 'stream') {
+					} else if (redisDataType === 'stream-stream') {
 						if (fromKeyName) {
 							list = await redis.call('xrange', fromKeyName, '-', '+');
 							returnData.push({
@@ -364,10 +387,9 @@ export class TorusPlatformData implements INodeType {
 								},
 							});
 						}
-					} else if (redisData === 'json-stream') {
+					} else if (redisDataType === 'json-stream') {
 						if (fromKeyName) {
 							list = await redis.call('JSON.GET', fromKeyName);
-							console.log(list);
 
 							returnData.push({
 								json: {
@@ -379,7 +401,7 @@ export class TorusPlatformData implements INodeType {
 						}
 						if (list && list.length > 0) {
 							if (toKeyName) {
-								await redis.call('xadd', toKeyName, '*', 'json', JSON.stringify(list));
+								await redis.call('xadd', toKeyName, '*', 'json', list);
 								returnData.push({
 									json: {
 										operation: 'both',
@@ -389,7 +411,7 @@ export class TorusPlatformData implements INodeType {
 								});
 							}
 						}
-					} else if (redisData === 'stream-json') {
+					} else if (redisDataType === 'stream-json') {
 						if (fromKeyName) {
 							list = await redis.xreadgroup(
 								'GROUP',
@@ -399,7 +421,6 @@ export class TorusPlatformData implements INodeType {
 								fromKeyName,
 								'>',
 							);
-							console.log(list);
 
 							returnData.push({
 								json: {
