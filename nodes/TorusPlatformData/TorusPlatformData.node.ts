@@ -14,6 +14,7 @@ export class TorusPlatformData implements INodeType {
 		this.description = {
 			displayName: 'Torus Platform Data',
 			name: 'torusPlatformData',
+			icon: 'file:logo_original.png',
 			group: ['transform'],
 			version: 1,
 			description: 'Node for reading or writing data to Torus platform',
@@ -23,6 +24,14 @@ export class TorusPlatformData implements INodeType {
 			inputs: ['main'],
 			outputs: ['main'],
 			properties: [
+				{
+					displayName: 'Tenant ID',
+					name: 'tenantId',
+					type: 'string',
+					default: '',
+					description: 'Enter your Torus Platform Tenant ID',
+					required: true,
+				},
 				{
 					displayName: 'Operation',
 					name: 'operation',
@@ -97,6 +106,20 @@ export class TorusPlatformData implements INodeType {
 					},
 				},
 				{
+					displayName: 'From KeyName ',
+					name: 'fromKeyName',
+					type: 'string',
+					default: '',
+					placeholder: 'Enter key name',
+					description: 'Specify the key for storing or retrieving data in Torus',
+					displayOptions: {
+						show: {
+							operation: ['both'],
+							redisDataType: ['stream-stream', 'json-json', 'json-stream', 'stream-json'],
+						},
+					},
+				},
+				{
 					displayName: 'Group Name',
 					name: 'groupName',
 					type: 'string',
@@ -106,7 +129,7 @@ export class TorusPlatformData implements INodeType {
 					displayOptions: {
 						show: {
 							operation: ['both'],
-							redisDataType: ['stream-json'],
+							redisDataType: ['stream-json', 'json-stream'],
 						},
 					},
 				},
@@ -120,7 +143,7 @@ export class TorusPlatformData implements INodeType {
 					displayOptions: {
 						show: {
 							operation: ['both'],
-							redisDataType: ['stream-json'],
+							redisDataType: ['stream-json', 'json-stream'],
 						},
 					},
 				},
@@ -152,22 +175,9 @@ export class TorusPlatformData implements INodeType {
 						},
 					},
 				},
+
 				{
-					displayName: 'FromKeyName ',
-					name: 'fromKeyName',
-					type: 'string',
-					default: '',
-					placeholder: 'Enter key name',
-					description: 'Specify the key for storing or retrieving data in Torus',
-					displayOptions: {
-						show: {
-							operation: ['both'],
-							redisDataType: ['stream-stream', 'json-json', 'json-stream', 'stream-json'],
-						},
-					},
-				},
-				{
-					displayName: 'To Key Name',
+					displayName: 'To KeyName',
 					name: 'toKeyName',
 					type: 'string',
 					default: '',
@@ -231,9 +241,10 @@ export class TorusPlatformData implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 
 		for (let i = 0; i < items.length; i++) {
+			const tenantId = this.getNodeParameter('tenantId', i) as string;
 			const operation = this.getNodeParameter('operation', i) as string;
-			const redisData = this.getNodeParameter('redisData', i) as string;
 
+			let redisData = '';
 			let keyName = '';
 			let streamName = '';
 			let value = '';
@@ -246,6 +257,8 @@ export class TorusPlatformData implements INodeType {
 			let redisDataType = '';
 
 			if (operation === 'write' || operation === 'read') {
+				redisData = this.getNodeParameter('redisData', i) as string;
+
 				if (redisData === 'json') {
 					keyName = this.getNodeParameter('keyName', i) as string;
 				} else if (redisData === 'stream') {
@@ -262,11 +275,11 @@ export class TorusPlatformData implements INodeType {
 					path = this.getNodeParameter('path', i) as string;
 				}
 				if (redisDataType === 'stream-json') {
-					consumer = this.getNodeParameter('consumer', i) as string;
-					groupName = this.getNodeParameter('groupName', i) as string;
 				}
 				fromKeyName = this.getNodeParameter('fromKeyName', i) as string;
 				toKeyName = this.getNodeParameter('toKeyName', i) as string;
+				consumer = this.getNodeParameter('consumer', i) as string;
+				groupName = this.getNodeParameter('groupName', i) as string;
 			}
 
 			const redis = new Redis({
@@ -280,6 +293,7 @@ export class TorusPlatformData implements INodeType {
 						await redis.call('JSON.SET', keyName, '$', JSON.stringify(value));
 						returnData.push({
 							json: {
+								tenantId,
 								operation: 'write',
 								keyName,
 								value,
@@ -289,6 +303,7 @@ export class TorusPlatformData implements INodeType {
 						await redis.call('xadd', streamName, '*', 'value', JSON.stringify(value));
 						returnData.push({
 							json: {
+								tenantId,
 								operation: 'write',
 								streamName,
 								value,
@@ -303,6 +318,7 @@ export class TorusPlatformData implements INodeType {
 						data = await redis.call('JSON.GET', keyName);
 						returnData.push({
 							json: {
+								tenantId,
 								operation: 'read',
 								keyName,
 								data,
@@ -312,6 +328,7 @@ export class TorusPlatformData implements INodeType {
 						data = await redis.call('xrange', streamName, '-', '+');
 						returnData.push({
 							json: {
+								tenantId,
 								operation: 'read',
 								streamName,
 								data,
@@ -326,9 +343,11 @@ export class TorusPlatformData implements INodeType {
 						if (fromKeyName) {
 							list = await redis.call('JSON.GET', fromKeyName);
 							let info = JSON.parse(list);
+							console.log(info);
 
 							returnData.push({
 								json: {
+									tenantId,
 									operation: 'both',
 									fromKeyName,
 									info,
@@ -339,27 +358,31 @@ export class TorusPlatformData implements INodeType {
 							await redis.call('JSON.ARRAPPEND', toKeyName, '.' + path, Value);
 							returnData.push({
 								json: {
+									tenantId,
 									operation: 'both',
 									toKeyName,
 									Value,
 								},
 							});
-						}
-						if (toKeyName) {
-							await redis.call('JSON.SET', toKeyName, '$', Value);
-							returnData.push({
-								json: {
-									operation: 'both',
-									toKeyName,
-									Value,
-								},
-							});
+						} else {
+							if (toKeyName) {
+								await redis.call('JSON.SET', toKeyName, '$', Value);
+								returnData.push({
+									json: {
+										tenantId,
+										operation: 'both',
+										toKeyName,
+										Value,
+									},
+								});
+							}
 						}
 					} else if (redisDataType === 'stream-stream') {
 						if (fromKeyName) {
 							list = await redis.call('xrange', fromKeyName, '-', '+');
 							returnData.push({
 								json: {
+									tenantId,
 									operation: 'both',
 									fromKeyName,
 									list,
@@ -370,8 +393,8 @@ export class TorusPlatformData implements INodeType {
 							await redis.call('xadd', toKeyName, '*', path, Value);
 							returnData.push({
 								json: {
+									tenantId,
 									operation: 'both',
-
 									Value,
 									toKeyName,
 								},
@@ -381,8 +404,8 @@ export class TorusPlatformData implements INodeType {
 							await redis.call('xadd', toKeyName, '*', 'value', JSON.stringify(Value));
 							returnData.push({
 								json: {
+									tenantId,
 									operation: 'both',
-
 									Value,
 									toKeyName,
 								},
@@ -394,6 +417,7 @@ export class TorusPlatformData implements INodeType {
 
 							returnData.push({
 								json: {
+									tenantId,
 									operation: 'both',
 									fromKeyName,
 									list,
@@ -404,8 +428,11 @@ export class TorusPlatformData implements INodeType {
 						if (list && list.length > 0) {
 							if (toKeyName) {
 								await redis.call('xadd', toKeyName, '*', 'json', list);
+								await redis.xgroup('CREATE', toKeyName, groupName, '0', 'MKSTREAM');
+								await redis.xgroup('CREATECONSUMER', toKeyName, groupName, consumer);
 								returnData.push({
 									json: {
+										tenantId,
 										operation: 'both',
 										list,
 										toKeyName,
@@ -427,6 +454,7 @@ export class TorusPlatformData implements INodeType {
 
 							returnData.push({
 								json: {
+									tenantId,
 									operation: 'both',
 									fromKeyName,
 									list,
@@ -439,6 +467,7 @@ export class TorusPlatformData implements INodeType {
 								await redis.call('JSON.SET', toKeyName, '$', JSON.stringify(list));
 								returnData.push({
 									json: {
+										tenantId,
 										operation: 'both',
 										list,
 										toKeyName,
