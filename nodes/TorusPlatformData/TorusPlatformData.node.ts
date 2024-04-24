@@ -25,12 +25,17 @@ export class TorusPlatformData implements INodeType {
 			outputs: ['main'],
 			properties: [
 				{
-					displayName: 'Tenant ID',
-					name: 'tenantId',
+					displayName: 'Tenant ',
+					name: 'tenant',
 					type: 'string',
 					default: '',
 					description: 'Enter your Torus Platform Tenant ID',
 					required: true,
+					displayOptions: {
+						show: {
+							operation: ['write', 'read'],
+						},
+					},
 				},
 				{
 					displayName: 'Operation',
@@ -241,7 +246,6 @@ export class TorusPlatformData implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 
 		for (let i = 0; i < items.length; i++) {
-			const tenantId = this.getNodeParameter('tenantId', i) as string;
 			const operation = this.getNodeParameter('operation', i) as string;
 
 			let redisData = '';
@@ -255,9 +259,11 @@ export class TorusPlatformData implements INodeType {
 			let consumer = '';
 			let groupName = '';
 			let redisDataType = '';
+			let tenant = '';
 
 			if (operation === 'write' || operation === 'read') {
 				redisData = this.getNodeParameter('redisData', i) as string;
+				tenant = this.getNodeParameter('tenant', i) as string;
 
 				if (redisData === 'json') {
 					keyName = this.getNodeParameter('keyName', i) as string;
@@ -290,10 +296,10 @@ export class TorusPlatformData implements INodeType {
 			try {
 				if (operation === 'write') {
 					if (redisData === 'json') {
-						await redis.call('JSON.SET', keyName, '$', JSON.stringify(value));
+						await redis.call('JSON.SET', keyName + ':' + tenant, '$', value);
 						returnData.push({
 							json: {
-								tenantId,
+								tenant,
 								operation: 'write',
 								keyName,
 								value,
@@ -303,7 +309,7 @@ export class TorusPlatformData implements INodeType {
 						await redis.call('xadd', streamName, '*', 'value', JSON.stringify(value));
 						returnData.push({
 							json: {
-								tenantId,
+								tenant,
 								operation: 'write',
 								streamName,
 								value,
@@ -315,10 +321,13 @@ export class TorusPlatformData implements INodeType {
 				if (operation === 'read') {
 					let data: any;
 					if (redisData === 'json') {
-						data = await redis.call('JSON.GET', keyName);
+						data = await redis.call('JSON.GET', keyName + ':' + tenant);
+						if (data === null) {
+							throw new Error(`Key ${keyName} not found in Redis.`);
+						}
 						returnData.push({
 							json: {
-								tenantId,
+								tenant,
 								operation: 'read',
 								keyName,
 								data,
@@ -326,9 +335,12 @@ export class TorusPlatformData implements INodeType {
 						});
 					} else if (redisData === 'stream') {
 						data = await redis.call('xrange', streamName, '-', '+');
+						if (data === null) {
+							throw new Error(`Key ${keyName} not found in Redis.`);
+						}
 						returnData.push({
 							json: {
-								tenantId,
+								tenant,
 								operation: 'read',
 								streamName,
 								data,
@@ -342,12 +354,12 @@ export class TorusPlatformData implements INodeType {
 					if (redisDataType === 'json-json') {
 						if (fromKeyName) {
 							list = await redis.call('JSON.GET', fromKeyName);
+
 							let info = JSON.parse(list);
 							console.log(info);
 
 							returnData.push({
 								json: {
-									tenantId,
 									operation: 'both',
 									fromKeyName,
 									info,
@@ -358,7 +370,6 @@ export class TorusPlatformData implements INodeType {
 							await redis.call('JSON.ARRAPPEND', toKeyName, '.' + path, Value);
 							returnData.push({
 								json: {
-									tenantId,
 									operation: 'both',
 									toKeyName,
 									Value,
@@ -369,7 +380,6 @@ export class TorusPlatformData implements INodeType {
 								await redis.call('JSON.SET', toKeyName, '$', Value);
 								returnData.push({
 									json: {
-										tenantId,
 										operation: 'both',
 										toKeyName,
 										Value,
@@ -382,7 +392,6 @@ export class TorusPlatformData implements INodeType {
 							list = await redis.call('xrange', fromKeyName, '-', '+');
 							returnData.push({
 								json: {
-									tenantId,
 									operation: 'both',
 									fromKeyName,
 									list,
@@ -393,7 +402,6 @@ export class TorusPlatformData implements INodeType {
 							await redis.call('xadd', toKeyName, '*', path, Value);
 							returnData.push({
 								json: {
-									tenantId,
 									operation: 'both',
 									Value,
 									toKeyName,
@@ -404,7 +412,6 @@ export class TorusPlatformData implements INodeType {
 							await redis.call('xadd', toKeyName, '*', 'value', JSON.stringify(Value));
 							returnData.push({
 								json: {
-									tenantId,
 									operation: 'both',
 									Value,
 									toKeyName,
@@ -417,7 +424,6 @@ export class TorusPlatformData implements INodeType {
 
 							returnData.push({
 								json: {
-									tenantId,
 									operation: 'both',
 									fromKeyName,
 									list,
@@ -432,7 +438,6 @@ export class TorusPlatformData implements INodeType {
 								await redis.xgroup('CREATECONSUMER', toKeyName, groupName, consumer);
 								returnData.push({
 									json: {
-										tenantId,
 										operation: 'both',
 										list,
 										toKeyName,
@@ -454,7 +459,6 @@ export class TorusPlatformData implements INodeType {
 
 							returnData.push({
 								json: {
-									tenantId,
 									operation: 'both',
 									fromKeyName,
 									list,
@@ -467,7 +471,6 @@ export class TorusPlatformData implements INodeType {
 								await redis.call('JSON.SET', toKeyName, '$', JSON.stringify(list));
 								returnData.push({
 									json: {
-										tenantId,
 										operation: 'both',
 										list,
 										toKeyName,
