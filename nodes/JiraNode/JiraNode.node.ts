@@ -214,8 +214,8 @@ export class JiraNode implements INodeType {
 						);
 					}
 				}
-				const success = true;
-				returnData.push({ json: { success: success } });
+				// const success = true;
+				returnData.push({ json: { response } });
 			} catch (error) {
 				throw new NodeOperationError(
 					this.getNode(),

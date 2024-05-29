@@ -35,7 +35,7 @@ export class TorusPlatformData implements INodeType {
 			outputs: ['main'], // Output connectors
 			properties: [
 				{
-					displayName: 'Tenant ', // Display name for the property
+					displayName: 'Tenant', // Display name for the property
 					name: 'tenant', // Name of the property
 					type: 'string', // Type of the property
 					default: '', // Default value for the property
@@ -53,7 +53,8 @@ export class TorusPlatformData implements INodeType {
 				{
 					displayName: 'Operation', // Display name for the property
 					name: 'operation', // Name of the property
-					type: 'options', // Type of the property
+					type: 'options',
+					noDataExpression: true, // Type of the property
 					options: [
 						// Options for the property
 						{
@@ -79,15 +80,15 @@ export class TorusPlatformData implements INodeType {
 					options: [
 						// Options for the property
 						{
-							name: 'JSON ',
+							name: 'JSON',
 							value: 'json',
 						},
 						{
-							name: 'STREAM ',
+							name: 'STREAM',
 							value: 'stream',
 						},
 					],
-					default: '', // Default value for the property
+					default: 'json', // Default value for the property
 					description: 'Choose the type of data structure in Redis', // Description of the property
 					displayOptions: {
 						// Display options for the property
@@ -120,7 +121,7 @@ export class TorusPlatformData implements INodeType {
 							value: 'stream-json',
 						},
 					],
-					default: '', // Default value for the property
+					default: 'json-json', // Default value for the property
 					description: 'Choose the type of data structure in Redis', // Description of the property
 					displayOptions: {
 						// Display options for the property
@@ -130,7 +131,7 @@ export class TorusPlatformData implements INodeType {
 					},
 				},
 				{
-					displayName: 'From KeyName ', // Display name for the property
+					displayName: 'From KeyName', // Display name for the property
 					name: 'fromKeyName', // Name of the property
 					type: 'string', //  Type of the property
 					default: '', // Default value for the property
@@ -204,6 +205,21 @@ export class TorusPlatformData implements INodeType {
 						},
 					},
 				},
+				// {
+				//  displayName: 'Stream ID', // Display name for the property
+				//  name: 'streamId', // Name of the property
+				//  type: 'string', //  Type of the property
+				//  default: '', // Default value for the property
+				//  placeholder: 'Enter id', // Placeholder for the property
+				//  description: 'Specify the key for storing or retrieving data in Torus', // Description of the property
+				//  displayOptions: {
+				//      // Display options for the property
+				//      show: {
+				//          operation: ['read'],
+				//          redisData: ['stream'],
+				//      },
+				//  },
+				// },
 
 				{
 					displayName: 'To KeyName', // Display name for the property
@@ -294,6 +310,7 @@ export class TorusPlatformData implements INodeType {
 			let groupName = '';
 			let redisDataType = '';
 			let tenant = '';
+			// let streamId = '';
 
 			// Retrieving parameters based on the operation
 			if (operation === 'write' || operation === 'read') {
@@ -307,6 +324,7 @@ export class TorusPlatformData implements INodeType {
 				} else if (redisData === 'stream') {
 					// Retrieving parameters based on the operation
 					streamName = this.getNodeParameter('streamName', i) as string; // Retrieving parameters based on the operation
+					// streamId = this.getNodeParameter('streamId', i) as string; // Retrieving parameters based on the operation
 				}
 			}
 			if (operation === 'write') {
@@ -333,19 +351,34 @@ export class TorusPlatformData implements INodeType {
 			}
 
 			const redis = new Redis({
-				host: process.env.HOST,
-				port: process.env.PORT,
+				// Initialize Redis connection
+				host: process.env.HOST, // Replace with your Redis host
+				port: process.env.PORT, // Replace with your Redis port
 			});
 
 			try {
 				// Perform operations based on the parameters
 				if (operation === 'write') {
+					// let fullKeyName: any;
+					// let itemsJson: any;
 					// Writing data to Redis
 					if (redisData === 'json') {
+						// Writing data to Redis
+						// Writing data to Redis
 						if (Object.keys(items[0].json).length == 0) {
-							await redis.call('JSON.SET', keyName + ':' + tenant, '$', value);
+							await redis.call('JSON.SET', keyName + ':' + tenant, '$', JSON.stringify(value)); // Set the key-value pair in Redis
+							// Set the key-value pair in Redis
+							console.log(items);
+							// console.log(fullKeyName);
+							// fullKeyName = `${keyName}:${tenant}`;
+							// itemsJson = JSON.stringify(value);
 						} else {
-							await redis.call('JSON.ARRAPPEND', keyName + ':' + tenant, '$', items);
+							await redis.call(
+								'JSON.ARRAPPEND',
+								keyName + ':' + tenant,
+								'$',
+								JSON.stringify(items),
+							);
 						}
 						returnData.push({
 							// Write to json
@@ -353,17 +386,20 @@ export class TorusPlatformData implements INodeType {
 								tenant,
 								operation: 'write',
 								keyName,
-								value,
-								items,
 							},
 						});
 					} else if (redisData === 'stream') {
 						// Writing data to Redis
+						//console.log(Object.keys(items[0].json).length);
+						// if (Object.keys(items[0].json).length == 0) {
+						await redis.call('xadd', streamName, '*', 'value', JSON.stringify(value));
+						// } else {
+						//  await redis.call('xadd', streamName, '*', 'value', JSON.stringify(items));
+						// }
 
 						returnData.push({
 							// Write to stream
 							json: {
-								tenant,
 								operation: 'write',
 								streamName,
 								value,
@@ -373,10 +409,22 @@ export class TorusPlatformData implements INodeType {
 				}
 
 				if (operation === 'read') {
+					// Reading data from Redis
 					let data: any; // Initialize data variable
+					let index: any;
+					let dataLength: any;
+					// let dataLength: any;
 					if (redisData === 'json') {
 						// Read from json
-						data = await redis.call('JSON.GET', keyName + ':' + tenant); // Retrieve data from Redis
+						data = JSON.parse(await redis.call('JSON.GET', keyName + ':' + tenant)); // Retrieve data from Redis
+						dataLength = data.length - 1;
+
+						// console.log(dataLength);
+
+						index = data[dataLength];
+
+						// console.log(index);
+
 						if (data === null) {
 							// Check if data is null
 							throw new Error(`Key ${keyName} not found in Redis.`);
@@ -387,19 +435,26 @@ export class TorusPlatformData implements INodeType {
 								tenant,
 								operation: 'read',
 								keyName,
-								data,
+								index,
 							},
 						});
 					} else if (redisData === 'stream') {
+						// console.log(streamId);
+						console.log(streamName);
 						// Read from stream
 						// data = await redis.call('xrange', streamName, '-', '+');
+						// data = await redis.call('xrange', streamName, streamId, streamId);
+						// dataLength = await redis.call('xlen', streamName);
 						data = await redis.call('xrevrange', streamName, '+', '-', 'COUNT', 1);
+						// data = await redis.xread('COUNT', dataLength, 'STREAMS', streamName, '$');
+						console.log(data);
+						// console.log(dataLength);
+
 						if (data === null) {
 							throw new Error(`Key ${keyName} not found in Redis.`);
 						}
 						returnData.push({
 							json: {
-								tenant,
 								operation: 'read',
 								streamName,
 								data,
