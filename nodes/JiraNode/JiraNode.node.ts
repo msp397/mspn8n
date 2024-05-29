@@ -177,11 +177,11 @@ export class JiraNode implements INodeType {
 						} catch (error) {}
 					}
 				}
-				if (recordData === 'U') {
+				if (recordData == 'U') {
 					if (resource === 'update') {
 						const key = this.getNodeParameter('key', itemIndex) as string;
-						const summary = this.getNodeParameter('summary', itemIndex) as string;
-						const description = this.getNodeParameter('description', itemIndex) as string;
+						// const summary = this.getNodeParameter('summary', itemIndex) as string;
+						// const description = this.getNodeParameter('description', itemIndex) as string;
 
 						if (!key) {
 							throw new NodeOperationError(this.getNode(), 'Issue ID is not provided.');
@@ -189,8 +189,8 @@ export class JiraNode implements INodeType {
 
 						const updateData = {
 							fields: {
-								summary: summary,
-								description: description,
+								summary: summaryData,
+								description: descrptionData,
 							},
 						};
 
@@ -200,7 +200,7 @@ export class JiraNode implements INodeType {
 							{ auth },
 						);
 					}
-				} else if (recordData === 'D') {
+				} else if (recordData == 'D') {
 					if (resource === 'delete') {
 						const key = this.getNodeParameter('key', itemIndex) as string;
 
