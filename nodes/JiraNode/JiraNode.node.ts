@@ -129,25 +129,22 @@ export class JiraNode implements INodeType {
 			const data = JSON.parse(await redis.call('JSON.GET', 'GSS-DEV:Payments:Torus:requirements'));
 			const index = data[data.length - 1];
 			const recordData = index.recordType;
-			const summaryData = index.Summary;
-			const issueTypeData = index.Issue_type;
-			const descrptionData = index.Description;
-
+			const summaryData = index.Summary as string;
+			const issueTypeData = index.Issue_type as string;
+			const descrptionData = index.Description as string;
+			//console.log(data);
+			// this.description.properties[3];
 			let response;
 			try {
-				if (recordData === 'A') {
+				if (recordData == 'A') {
 					if (resource === 'create') {
-						const summary = this.getNodeParameter('summary', itemIndex) as string;
-						const description = this.getNodeParameter('description', itemIndex) as string;
-						const issueType = this.getNodeParameter(
-							'issueType',
-							itemIndex,
-							issueTypeData,
-						) as string;
+						// const summary = this.getNodeParameter('summary', itemIndex) as string;
+						// const description = this.getNodeParameter('description', itemIndex) as string;
+						// const issueType = this.getNodeParameter('issueType', itemIndex) as string;
 
-						if (!summary) {
-							throw new NodeOperationError(this.getNode(), 'Summary is not provided.');
-						}
+						// if (!summary) {
+						// 	throw new NodeOperationError(this.getNode(), 'Summary is not provided.');
+						// }
 
 						const postData = {
 							fields: {
@@ -156,31 +153,35 @@ export class JiraNode implements INodeType {
 								},
 								summary: summaryData,
 								description: descrptionData,
-								issuetype: issueTypeData,
+								issuetype: { name: issueTypeData },
 							},
 						};
+						// const postData = {
+						// 	fields: {
+						// 		project: {
+						// 			key: 'SCRUM',
+						// 		},
+						// 		summary: summary,
+						// 		description: description,
+						// 		issuetype: { name: issueType },
+						// 	},
+						// };
 						console.log(postData);
+
 						try {
 							response = await axios.post(
 								'https://torus-jiracloud.atlassian.net/rest/api/2/issue',
 								postData,
 								{ auth },
 							);
-							console.log(response);
-						} catch (error) {
-							console.log(error);
-						}
+						} catch (error) {}
 					}
 				}
 				if (recordData === 'U') {
 					if (resource === 'update') {
 						const key = this.getNodeParameter('key', itemIndex) as string;
 						const summary = this.getNodeParameter('summary', itemIndex) as string;
-						const description = this.getNodeParameter(
-							'description',
-							itemIndex,
-							descrptionData,
-						) as string;
+						const description = this.getNodeParameter('description', itemIndex) as string;
 
 						if (!key) {
 							throw new NodeOperationError(this.getNode(), 'Issue ID is not provided.');
