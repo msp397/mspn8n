@@ -31,7 +31,8 @@
 		"n8nNodesApiVersion": 1,
 		"credentials": [
 			"dist/credentials/ExampleCredentialsApi.credentials.js",
-			"dist/credentials/HttpBinApi.credentials.js"
+			"dist/credentials/HttpBinApi.credentials.js",
+			"dist/credentials/TorusMsgCredentialsApi.credential.js"
 		],
 		"nodes": [
 			"dist/nodes/WriteTorusPlatformData/WriteTorusPlatformData.node.js",
@@ -39,7 +40,11 @@
 			"dist/nodes/ReadTorusPlatformData/ReadTorusPlatformData.node.js",
 			"dist/nodes/ExampleNode/ExampleNode.node.js",
 			"dist/nodes/CustomNode/CustomNode.node.js",
-			"dist/nodes/TorusPlatformData/TorusPlatformData.node.js"
+			"dist/nodes/TorusPlatformData/TorusPlatformData.node.js",
+			"dist/nodes/SendNode/SendNode.node.js",
+			"dist/nodes/TorusWhatsApp/TorusWhatsApp.node.js",
+			"dist/nodes/TorusEmail/TorusEmail.node.js",
+			"dist/nodes/JiraNode/JiraNode.node.js"
 		]
 	},
 	"devDependencies": {
